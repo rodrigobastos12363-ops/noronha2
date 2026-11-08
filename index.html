@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roteiro Noronha</title>
+    
+    <!-- Tailwind CSS para o visual -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Biblioteca de Ícones (Phosphor Icons) -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <!-- React e Babel para rodar direto no navegador -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        /* Pequenos ajustes de animação e barra de rolagem */
+        body { -webkit-tap-highlight-color: transparent; }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom, 16px); }
+        .animate-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-cyan-50 via-teal-50/30 to-blue-50 pb-24 font-sans text-gray-800 min-h-screen">
+    
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const INITIAL_DATA = {
+          accommodation: {
+            name: "Pousada Vila Sal Noronha",
+            checkIn: "25/11 às 15:00",
+            checkOut: "29/11",
+            contact: "",
+            address: "Floresta Velha",
+            notes: "Pousada super bem localizada."
+          },
+          flights: {
+            ida: {
+              flightNumber: "",
+              departureTime: "",
+              arrivalTime: "25/11 às 15:00 (Hor. Noronha)",
+              baggage: "Verificar limites da companhia",
+              notes: "Horário local de Noronha é 1h a mais que Brasília."
+            },
+            volta: {
+              flightNumber: "",
+              departureTime: "29/11 às 15:00 (Hor. Noronha)",
+              arrivalTime: "29/11 às 16:00 (Hor. Recife)",
+              baggage: "Verificar limites da companhia",
+              notes: "Chegar ao aeroporto de Noronha por volta das 13:30."
+            }
+          },
+          itinerary: [
+            {
+              id: "day1", date: "25/11 - Quarta", title: "Chegada e Clima da Ilha",
+              activities: [
+                { 
+                  id: "a1", title: "Chegada e Pôr do Sol", time: "15:00", 
+                  notes: "Check-in na Pousada e Pôr do Sol na Praia da Conceição (Bar do Meio)." 
+                }
+              ]
+            },
+            {
+              id: "day2", date: "26/11 - Quinta", title: "Água e Mar",
+              activities: [
+                { 
+                  id: "a2", title: "Canoa Havaiana", time: "Nascer do Sol", 
+                  notes: "Cacimba do Padre e Baía dos Porcos.",
+                  equipment: "Protetor reef-safe, roupa UV."
+                },
+                { 
+                  id: "a3", title: "Passeio Entardecer", time: "13:30", 
+                  foodIncluded: true,
+                  notes: "Inclui plana sub e peixe assado a bordo." 
+                }
+              ]
+            },
+            {
+              id: "day3", date: "27/11 - Sexta", title: "Ritmo Próprio",
+              activities: [
+                { 
+                  id: "a4", title: "Forró no Bar do Cachorro", time: "Noite", 
+                  notes: "Sexta-feira tradicional em Noronha. De frente pro mar." 
+                }
+              ]
+            },
+            {
+              id: "day4", date: "28/11 - Sábado", title: "Raio-X Exclusivo",
+              activities: [
+                { 
+                  id: "a5", title: "Ilha Tour Privativo", time: "08:00", 
+                  price: "R$ 1.500,00", duration: "8h", 
+                  equipment: "Protetor solar, roupa de banho, óculos.", 
+                  notes: "Buggy privativo. Inclui fotos e vídeos de GoPro subaquáticas.",
+                  environmentalAuth: true
+                },
+                { 
+                  id: "a6", title: "Festival Gastronômico do Zé Maria", time: "Noite", 
+                  notes: "Banquete colossal de frutos do mar, sushis. Depois vira festa." 
+                }
+              ]
+            },
+            {
+              id: "day5", date: "29/11 - Domingo", title: "Despedida",
+              activities: [
+                { 
+                  id: "a7", title: "Retorno", time: "13:30", 
+                  notes: "Ida para o aeroporto de Noronha." 
+                }
+              ]
+            }
+          ]
+        };
+
+        function App() {
+          const [activeTab, setActiveTab] = useState('roteiro'); // 'roteiro', 'hospedagem', 'voos'
+          const [tripData, setTripData] = useState(() => {
+            const saved = localStorage.getItem('noronha-trip-data-html');
+            if (saved) {
+              try { return JSON.parse(saved); } catch (e) { console.error("Erro ao carregar dados", e); }
+            }
+            return INITIAL_DATA;
+          });
+
+          const [editingActivity, setEditingActivity] = useState(null);
+
+          useEffect(() => {
+            localStorage.setItem('noronha-trip-data-html', JSON.stringify(tripData));
+          }, [tripData]);
+
+          const handleSaveActivity = (dayId, activity) => {
+            setTripData(prev => {
+              const newItinerary = prev.itinerary.map(day => {
+                if (day.id === dayId) {
+                  const exists = day.activities.find(a => a.id === activity.id);
+                  if (exists) {
+                    return { ...day, activities: day.activities.map(a => a.id === activity.id ? activity : a) };
+                  } else {
+                    return { ...day, activities: [...day.activities, activity] };
+                  }
+                }
+                return day;
+              });
+              return { ...prev, itinerary: newItinerary };
+            });
+            setEditingActivity(null);
+          };
+
+          const handleDeleteActivity = (dayId, activityId) => {
+            setTripData(prev => ({
+              ...prev,
+              itinerary: prev.itinerary.map(day => day.id === dayId 
+                ? { ...day, activities: day.activities.filter(a => a.id !== activityId) }
+                : day
+              )
+            }));
+            setEditingActivity(null);
+          };
+
+          const handleUpdateAccom = (field, value) => {
+            setTripData(prev => ({ ...prev, accommodation: { ...prev.accommodation, [field]: value } }));
+          };
+
+          const handleUpdateFlight = (type, field, value) => {
+            setTripData(prev => ({ ...prev, flights: { ...prev.flights, [type]: { ...prev.flights[type], [field]: value } } }));
+          };
+
+          // --- Sub-componentes ---
+          const InputGroup = ({ label, iconClass, value, onChange, placeholder, type="text" }) => (
+            <div className="mb-4">
+              <label className="flex items-center gap-1.5 text-sm font-semibold text-teal-800 mb-1">
+                {iconClass && <i className={`${iconClass} text-teal-600 text-base`}></i>}
+                {label}
+              </label>
+              {type === 'textarea' ? (
+                <textarea 
+                  value={value || ''} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+                  className="w-full p-2.5 bg-white border border-teal-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-all resize-none h-24 text-gray-700"
+                />
+              ) : (
+                <input 
+                  type={type} value={value || ''} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+                  className="w-full p-2.5 bg-white border border-teal-200 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-all text-gray-700"
+                />
+              )}
+            </div>
+          );
+
+          const ActivityModal = () => {
+            if (!editingActivity) return null;
+            const { dayId, activity } = editingActivity;
+            const isNew = !activity.title && !activity.time;
+            const [formData, setFormData] = useState(activity);
+
+            const updateF = (f, v) => setFormData(p => ({ ...p, [f]: v }));
+
+            return (
+              <div className="fixed inset-0 bg-teal-900/60 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4">
+                <div className="bg-white w-full md:max-w-xl h-[85vh] md:h-auto md:max-h-[90vh] rounded-t-2xl md:rounded-2xl shadow-2xl flex flex-col animate-in duration-300">
+                  <div className="flex justify-between items-center p-4 border-b border-teal-100 bg-teal-50 rounded-t-2xl md:rounded-t-2xl">
+                    <h3 className="font-bold text-teal-900 text-lg">{isNew ? 'Nova Atividade' : 'Editar Atividade'}</h3>
+                    <button onClick={() => setEditingActivity(null)} className="p-2 text-teal-700 hover:bg-teal-200 rounded-full transition-colors flex items-center justify-center">
+                      <i className="ph ph-x text-xl"></i>
+                    </button>
+                  </div>
+                  
+                  <div className="p-4 overflow-y-auto flex-1 bg-gray-50/50">
+                    <InputGroup label="Título do Passeio/Atividade" iconClass="ph ph-map-pin" value={formData.title} onChange={v => updateF('title', v)} placeholder="Ex: Ilha Tour" />
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <InputGroup label="Horário" iconClass="ph ph-clock" value={formData.time} onChange={v => updateF('time', v)} placeholder="Ex: 08:00 ou Manhã" />
+                      <InputGroup label="Duração" iconClass="ph ph-hourglass" value={formData.duration} onChange={v => updateF('duration', v)} placeholder="Ex: 8h" />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <InputGroup label="Preço" iconClass="ph ph-currency-dollar" value={formData.price} onChange={v => updateF('price', v)} placeholder="Ex: R$ 1500" />
+                      <InputGroup label="Nome do Guia" iconClass="ph ph-user" value={formData.guideName} onChange={v => updateF('guideName', v)} placeholder="Ex: João" />
+                    </div>
+                    
+                    <InputGroup label="Contato (Tel/Insta)" iconClass="ph ph-phone" value={formData.contact} onChange={v => updateF('contact', v)} placeholder="Telefone ou Instagram" />
+                    <InputGroup label="Equipamentos p/ levar" iconClass="ph ph-suitcase" value={formData.equipment} onChange={v => updateF('equipment', v)} placeholder="Ex: Protetor solar, snorkel" />
+                    
+                    <div className="space-y-3 mb-4 p-3 bg-white border border-teal-100 rounded-lg">
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" checked={formData.environmentalAuth || false} onChange={e => updateF('environmentalAuth', e.target.checked)} className="w-5 h-5 text-teal-600 rounded focus:ring-teal-500 accent-teal-600" />
+                        <span className="text-sm font-medium text-gray-700 flex items-center gap-1.5"><i className="ph ph-warning text-amber-500"></i> Precisa de Aut. Ambiental (ICMBio)?</span>
+                      </label>
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input type="checkbox" checked={formData.foodIncluded || false} onChange={e => updateF('foodIncluded', e.target.checked)} className="w-5 h-5 text-teal-600 rounded focus:ring-teal-500 accent-teal-600" />
+                        <span className="text-sm font-medium text-gray-700 flex items-center gap-1.5"><i className="ph ph-coffee text-teal-600"></i> Alimentação/Bebida Inclusa?</span>
+                      </label>
+                    </div>
+
+                    <InputGroup label="Observações Livres" iconClass="ph ph-file-text" value={formData.notes} onChange={v => updateF('notes', v)} type="textarea" placeholder="Detalhes adicionais..." />
+                  </div>
+
+                  <div className="p-4 border-t border-teal-100 flex justify-between bg-white rounded-b-2xl">
+                    {!isNew ? (
+                      <button onClick={() => handleDeleteActivity(dayId, formData.id)} className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg font-medium transition-colors">
+                        <i className="ph ph-trash text-lg"></i> Apagar
+                      </button>
+                    ) : <div></div>}
+                    <button onClick={() => handleSaveActivity(dayId, formData)} className="flex items-center gap-2 px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-medium shadow-md transition-colors">
+                      <i className="ph ph-check-circle text-lg"></i> Salvar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          };
+
+          return (
+            <div className="w-full">
+              {/* Header Fixo */}
+              <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-teal-100 shadow-sm p-4 text-center">
+                <div className="flex justify-center items-center gap-2 text-teal-800">
+                  <i className="ph ph-tree-palm text-2xl"></i>
+                  <h1 className="text-xl md:text-2xl font-bold tracking-tight">Roteiro Noronha</h1>
+                  <i className="ph ph-sun text-2xl text-amber-500"></i>
+                </div>
+                <p className="text-sm text-teal-600 font-medium">Rodrigo & Daniella</p>
+              </header>
+
+              <main className="p-4 md:p-6 max-w-3xl mx-auto animate-in">
+                
+                {/* ABA: ROTEIRO */}
+                {activeTab === 'roteiro' && (
+                  <div className="space-y-6">
+                    {tripData.itinerary.map((day) => (
+                      <div key={day.id} className="bg-white rounded-xl shadow-sm border border-teal-100 overflow-hidden">
+                        <div className="bg-teal-600 text-white p-3 px-4 flex justify-between items-center">
+                          <div>
+                            <h3 className="font-bold flex items-center gap-2 text-lg">
+                              <i className="ph ph-waves text-teal-200"></i> {day.date}
+                            </h3>
+                            <p className="text-teal-100 text-sm">{day.title}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="p-3 space-y-3">
+                          {day.activities.map(act => (
+                            <div 
+                              key={act.id} 
+                              onClick={() => setEditingActivity({ dayId: day.id, activity: act })}
+                              className="group flex flex-col p-3 rounded-lg border border-gray-100 bg-gray-50 hover:bg-teal-50 hover:border-teal-200 cursor-pointer transition-all shadow-sm"
+                            >
+                              <div className="flex justify-between items-start mb-1">
+                                <span className="font-semibold text-teal-900 leading-tight">{act.title || "Atividade sem título"}</span>
+                                <span className="text-xs font-bold text-teal-700 bg-teal-100 px-2 py-1 rounded-full whitespace-nowrap ml-2">
+                                  {act.time || "--:--"}
+                               </span>
+                              </div>
+                              
+                              {act.notes && <p className="text-sm text-gray-600 line-clamp-2 mt-1">{act.notes}</p>}
+                              
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                {act.duration && <span className="text-xs flex items-center gap-1 text-gray-500"><i className="ph ph-clock"></i> {act.duration}</span>}
+                                {act.price && <span className="text-xs flex items-center gap-1 text-emerald-600 font-medium"><i className="ph ph-currency-dollar"></i> {act.price}</span>}
+                                {act.environmentalAuth && <span className="text-xs flex items-center gap-1 text-amber-600 bg-amber-50 px-1.5 rounded"><i className="ph ph-warning"></i> ICMBio</span>}
+                                {act.foodIncluded && <span className="text-xs flex items-center gap-1 text-blue-600 bg-blue-50 px-1.5 rounded"><i className="ph ph-coffee"></i> Alimentação</span>}
+                              </div>
+                            </div>
+                          ))}
+                          
+                          <button 
+                            onClick={() => setEditingActivity({ dayId: day.id, activity: { id: Date.now().toString() } })}
+                            className="w-full py-2.5 mt-2 flex items-center justify-center gap-2 text-sm text-teal-700 font-medium bg-white border border-dashed border-teal-300 hover:bg-teal-50 rounded-lg transition-colors"
+                          >
+                            <i className="ph ph-plus text-lg"></i> Adicionar Atividade
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* ABA: HOSPEDAGEM */}
+                {activeTab === 'hospedagem' && (
+                  <div className="bg-white rounded-xl shadow-sm border border-teal-100 p-5 space-y-4">
+                    <h2 className="text-xl font-bold text-teal-900 flex items-center gap-2 mb-4">
+                      <i className="ph ph-house text-teal-500 text-2xl"></i> Detalhes da Hospedagem
+                    </h2>
+                    <InputGroup label="Nome da Pousada" iconClass="ph ph-house" value={tripData.accommodation.name} onChange={v => handleUpdateAccom('name', v)} />
+                    <div className="grid grid-cols-2 gap-4">
+                      <InputGroup label="Check-in" iconClass="ph ph-calendar-plus" value={tripData.accommodation.checkIn} onChange={v => handleUpdateAccom('checkIn', v)} />
+                      <InputGroup label="Check-out" iconClass="ph ph-calendar-minus" value={tripData.accommodation.checkOut} onChange={v => handleUpdateAccom('checkOut', v)} />
+                    </div>
+                    <InputGroup label="Endereço / Localização" iconClass="ph ph-map-pin" value={tripData.accommodation.address} onChange={v => handleUpdateAccom('address', v)} />
+                    <InputGroup label="Contato" iconClass="ph ph-phone" value={tripData.accommodation.contact} onChange={v => handleUpdateAccom('contact', v)} />
+                    <InputGroup label="Anotações" iconClass="ph ph-file-text" type="textarea" value={tripData.accommodation.notes} onChange={v => handleUpdateAccom('notes', v)} />
+                  </div>
+                )}
+
+                {/* ABA: VOOS */}
+                {activeTab === 'voos' && (
+                  <div className="space-y-6">
+                    {['ida', 'volta'].map((tipo) => (
+                      <div key={tipo} className="bg-white rounded-xl shadow-sm border border-teal-100 p-5 space-y-4">
+                        <h2 className="text-xl font-bold text-teal-900 flex items-center gap-2 mb-4 capitalize">
+                          <i className={`ph ph-airplane text-teal-500 text-2xl ${tipo === 'volta' ? 'transform rotate-180' : ''}`}></i> Voo de {tipo}
+                        </h2>
+                        <InputGroup label="Número do Voo / Cia" iconClass="ph ph-airplane-tilt" value={tripData.flights[tipo].flightNumber} onChange={v => handleUpdateFlight(tipo, 'flightNumber', v)} placeholder="Ex: GOL 1234" />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <InputGroup label="Partida (Horário Local)" iconClass="ph ph-clock" value={tripData.flights[tipo].departureTime} onChange={v => handleUpdateFlight(tipo, 'departureTime', v)} />
+                          <InputGroup label="Chegada (Horário Local)" iconClass="ph ph-clock" value={tripData.flights[tipo].arrivalTime} onChange={v => handleUpdateFlight(tipo, 'arrivalTime', v)} />
+                        </div>
+                        <InputGroup label="Informações de Bagagem" iconClass="ph ph-suitcase" value={tripData.flights[tipo].baggage} onChange={v => handleUpdateFlight(tipo, 'baggage', v)} />
+                        <InputGroup label="Anotações" iconClass="ph ph-file-text" type="textarea" value={tripData.flights[tipo].notes} onChange={v => handleUpdateFlight(tipo, 'notes', v)} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </main>
+
+              <ActivityModal />
+
+              {/* Navegação Inferior */}
+              <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-teal-100 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-40 px-2 pb-safe pt-2">
+                <div className="max-w-md mx-auto flex justify-between items-center h-14">
+                  <button 
+                    onClick={() => setActiveTab('roteiro')}
+                    className={`flex-1 flex flex-col items-center justify-center gap-1 transition-colors ${activeTab === 'roteiro' ? 'text-teal-600' : 'text-gray-400 hover:text-teal-500'}`}
+                  >
+                    <i className={`ph ph-map-trifold text-2xl ${activeTab === 'roteiro' ? 'ph-fill' : ''}`}></i>
+                    <span className="text-[10px] font-bold uppercase tracking-wider">Roteiro</span>
+                  </button>
+                  
+                  <button 
+                    onClick={() => setActiveTab('hospedagem')}
+                    className={`flex-1 flex flex-col items-center justify-center gap-1 transition-colors ${activeTab === 'hospedagem' ? 'text-teal-600' : 'text-gray-400 hover:text-teal-500'}`}
+                  >
+                    <i className={`ph ph-house text-2xl ${activeTab === 'hospedagem' ? 'ph-fill' : ''}`}></i>
+                    <span className="text-[10px] font-bold uppercase tracking-wider">Pousada</span>
+                  </button>
+                  
+                  <button 
+                    onClick={() => setActiveTab('voos')}
+                    className={`flex-1 flex flex-col items-center justify-center gap-1 transition-colors ${activeTab === 'voos' ? 'text-teal-600' : 'text-gray-400 hover:text-teal-500'}`}
+                  >
+                    <i className={`ph ph-airplane text-2xl ${activeTab === 'voos' ? 'ph-fill' : ''}`}></i>
+                    <span className="text-[10px] font-bold uppercase tracking-wider">Voos</span>
+                  </button>
+                </div>
+              </nav>
+            </div>
+          );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
